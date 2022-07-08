@@ -97,13 +97,17 @@ func main() {
 	var verify_client = params.Bool("verify-target", true, "Verify target, do certificate checks", "BOOL")
 	var secure_client = params.Bool("secure-target", true, "Enforce minimum of TLS 1.2 on client side", "BOOL")
 	var tls_client = params.Bool("tls-target", true, "Enable output TLS", "BOOL")
-	tls_host = params.String("host", "localhost", "Hostname for output/target NiFi - This should be set to what the target is expecting", "FQDN[:PORT]")
+	tls_host = params.String("host", "", "Hostname for output/target NiFi - This should be set to what the target is expecting", "FQDN[:PORT]")
 	params.GroupingSet("Certificate")
 	certFile = params.String("cert", "/etc/pki/server.pem", "File to load with CERT - automatically reloaded every minute\n", "FILE")
 	keyFile = params.String("key", "/etc/pki/server.pem", "File to load with KEY - automatically reloaded every minute\n", "FILE")
 	rootFile = params.String("ca", "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", "File to load with ROOT CAs - reloaded every minute by adding any new entries\n", "FILE")
 	params.CommandLine.Indent = 2
 	params.Parse()
+
+	if *tls_host == "" {
+		tls_host = target
+	}
 
 	var err error
 
@@ -166,9 +170,8 @@ func main() {
 		}
 	}
 
-	if *debug {
-		fmt.Println("Target set to", *target)
-	}
+	log.Println("Target set to", *target)
+	log.Println("Host set to", *tls_host)
 	target_addr = *target
 
 	defer l.Close()

@@ -41,6 +41,10 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 				return fmt.Errorf("Diode: Error reading in input header, %s", err)
 			}
 			if strings.TrimSpace(str) == "" {
+				_, err = output_pipe.Write([]byte(str))
+				if err != nil {
+					return fmt.Errorf("Diode: Error writing header end to output, %s", err)
+				}
 				break
 			}
 
@@ -125,7 +129,9 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 				if err != nil {
 					return fmt.Errorf("Diode: Invalid content length, %q", cl)
 				}
-				io.Copy(outbuf, &io.LimitedReader{R: inbuf, N: i})
+				if i > 0 {
+					io.Copy(outbuf, &io.LimitedReader{R: inbuf, N: i})
+				}
 			} else {
 				if strings.ToLower(header_map["transfer-encoding"]) != "chunked" {
 					return fmt.Errorf("Diode: No content-length specified or invalid transfer-encoding, %q", header_map["transfer-encoding"])
