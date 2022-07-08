@@ -57,9 +57,9 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 				method = parts[0]
 				target = parts[1]
 				switch method {
-				case "POST":
+				case "POST", "HEAD":
 					output_pipe = outbuf
-				case "DELETE", "GET", "HEAD":
+				case "DELETE", "GET":
 					// Write everything to discard, as DELETE and GET are not needed here
 					output_pipe = ioutil.Discard
 				default:
@@ -137,6 +137,7 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 					return fmt.Errorf("Diode: No content-length specified or invalid transfer-encoding, %q", header_map["transfer-encoding"])
 				}
 
+			post:
 				for {
 					str, err := inbuf.ReadString('\n')
 					if str == "" && err != nil {
@@ -159,7 +160,7 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 						if err != nil {
 							return fmt.Errorf("Diode: Error writing end of post payload, %s", err)
 						}
-						break
+						break post
 					default:
 						if header_map["content-type"] == "application/flowfile-v3" {
 							// Handle the case of a flow file
@@ -177,6 +178,7 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 							io.Copy(outbuf, &io.LimitedReader{R: inbuf, N: i})
 						}
 					}
+					outbuf.Flush()
 				}
 			}
 			outbuf.Flush()
