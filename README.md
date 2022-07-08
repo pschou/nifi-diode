@@ -1,12 +1,12 @@
 # NiFi Diode
 Super simple NiFi Diode that does one thing, takes in data and passes it on to
 another NiFi without letting anything go the other direction.  Hence it's a
-simple, no cache DIODE.
+simple, no-cache-diode.
 
 The idea here is this server listens on a ip:port and then any incomming
 connection is streamed to another ip:port, but data can only transfer one way.
 The sending side will have no idea what server it is sending to nor be able to
-get any information from the upstream NiFi.
+get any information from the downstream NiFi.
 
 ## Usage
 ```
