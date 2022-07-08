@@ -99,7 +99,7 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 		case "HEAD":
 			input.Write([]byte("HTTP/1.1 200 OK\r\n" +
 				"Date: " + time.Now().UTC().Format(time.RFC1123) + "\r\n" +
-				"Accept: application/flowfile-v3,*/*;q=0.8\r\n" +
+				"Accept: application/flowfile-v3,application/octet-stream;q=0.8\r\n" +
 				"x-nifi-transfer-protocol-version: 3\r\n" +
 				"Content-Length: 0\r\n" +
 				"Server: NiFi-Diode (github.com/pschou/nifi-diode)\r\n" +
@@ -160,27 +160,22 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 							return fmt.Errorf("Diode: Error writing end of post payload, %s", err)
 						}
 						break
-					case "1fe9":
-						// Handle the case of a flow file
-						outbuf.Flush()
-						for {
-							n, err := parseFlowFileLength(inbuf)
-							if err != nil {
-								return fmt.Errorf("Diode: Error decoding flowfile segment, %s", err)
-							}
-							if n == 0 {
-								break
-							}
-							io.Copy(outbuf, &io.LimitedReader{R: inbuf, N: n})
-						}
-
 					default:
-						// Simple string field
-						i, err := strconv.ParseInt(trim, 10, 64)
-						if err != nil {
-							return fmt.Errorf("Diode: Invalid flowfile length, %q", trim)
+						if header_map["content-type"] == "application/flowfile-v3" {
+							// Handle the case of a flow file
+							i, err := strconv.ParseInt(trim, 16, 64)
+							if err != nil {
+								return fmt.Errorf("Diode: Invalid flowfile length, %q", trim)
+							}
+							io.Copy(outbuf, &io.LimitedReader{R: inbuf, N: i})
+						} else {
+							// Simple octect stream
+							i, err := strconv.ParseInt(trim, 10, 64)
+							if err != nil {
+								return fmt.Errorf("Diode: Invalid flowfile length, %q", trim)
+							}
+							io.Copy(outbuf, &io.LimitedReader{R: inbuf, N: i})
 						}
-						io.Copy(outbuf, &io.LimitedReader{R: inbuf, N: i})
 					}
 				}
 			}
