@@ -23,10 +23,16 @@ task of bringing in updates while ensuring that data has no chance of escaping
 the network?  Enter stage right, nifi-diode.  This tool has a good resume:
 
 - Free and open-source (FOSS is good)
-- Has a memory footprint of 10-50 MB. (It runs on cheap hardware)
-- Can run directly from a kernel INIT= call. (no one can break in!)
-- Place a box in a locked server room, and by denying physical access, you effectively prohibit data from going the wrong way. (It's a win-win!)
-- Threadable, multiple concurrent flows can help with latency issues.
+- Has a memory footprint of 1-50 MB. (It runs on cheap hardware) 
+- Can run directly from a kernel INIT= call - Avoid purchasing a dedicated buy
+  a hardware appliance.  Download your favorite distro and then modify the grub
+  init to point to this binary instead of the standard init and you have yourself
+  a linux based "hardware" NiFi diode.
+- Standard data diode protections apply - place this on a box in a locked server
+  room, and by denying physical access, you effectively prohibit data from going
+  the wrong way. (It's a win-win!)
+- Threadable, multiple concurrent flows can help with latency issues and increase
+  throughput.
 
 What are the pitfalls?
 
