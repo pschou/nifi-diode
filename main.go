@@ -15,9 +15,13 @@ import (
 	"log"
 	"net"
 	"os"
+	"os/exec"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
+	"github.com/mdlayher/watchdog"
 	"github.com/pschou/go-params"
 )
 
@@ -38,6 +42,8 @@ var certs_loaded = make(map[string]bool, 0)
 var debug *bool
 var version = "not set"
 var tls_host *string
+
+var last_connection = time.Now()
 
 func loadKeys() {
 	keypair_mu.RLock()
@@ -88,18 +94,20 @@ func main() {
 	}
 	debug = params.Pres("debug", "Verbose output")
 	params.GroupingSet("Listener")
-	var listen = params.String("listen", ":7443", "Incoming/listen address for diode", "HOST:PORT")
+	var listen = params.String("l listen", ":7443", "Incoming/listen address for diode", "HOST:PORT")
 	var verify_server = params.Bool("verify-incoming", true, "Verify incoming connections, do certificate checks", "BOOL")
 	var secure_server = params.Bool("secure-incoming", true, "Enforce minimum of TLS 1.2 on server side", "BOOL")
 	var tls_server = params.Bool("tls-incoming", true, "Enable listener TLS", "BOOL")
+	var watchdog_max = params.Duration("watchdog", time.Duration(0), "Trigger a reboot if no connection is seen within this time window", "DURATION")
+	var init_run = params.String("init-run", "", "Run shell script before starting server. Use this to enable networking when nifi-diode\nis started by the kernel in INIT 1 state (single process)", "PATH")
 	params.GroupingSet("Target")
-	var target = params.String("target", "127.0.0.1:443", "Output/target address for diode", "HOST:PORT")
+	var target = params.String("t target", "127.0.0.1:443", "Output/target address for diode", "HOST:PORT")
 	var verify_client = params.Bool("verify-target", true, "Verify target, do certificate checks", "BOOL")
 	var secure_client = params.Bool("secure-target", true, "Enforce minimum of TLS 1.2 on client side", "BOOL")
 	var tls_client = params.Bool("tls-target", true, "Enable output TLS", "BOOL")
-	tls_host = params.String("host", "", "Hostname for output/target NiFi - This should be set to what the target is expecting", "FQDN[:PORT]")
+	tls_host = params.String("H host", "", "Hostname for output/target NiFi - This should be set to what the target is expecting", "FQDN[:PORT]")
 	params.GroupingSet("Certificate")
-	certFile = params.String("cert", "/etc/pki/server.pem", "File to load with CERT - automatically reloaded every minute\n", "FILE")
+	certFile = params.String("E cert", "/etc/pki/server.pem", "File to load with CERT - automatically reloaded every minute\n", "FILE")
 	keyFile = params.String("key", "/etc/pki/server.pem", "File to load with KEY - automatically reloaded every minute\n", "FILE")
 	rootFile = params.String("ca", "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", "File to load with ROOT CAs - reloaded every minute by adding any new entries\n", "FILE")
 	params.CommandLine.Indent = 2
@@ -124,6 +132,69 @@ func main() {
 		}
 	}()
 
+	if len(*init_run) > 3 {
+		log.Printf("Running %s...", *init_run)
+		cmd, err := exec.Command("/bin/sh", *init_run).Output()
+		if err != nil {
+			fmt.Printf("error %s", err)
+		}
+		fmt.Println(cmd)
+	}
+
+	// Setup the watchdog
+	if *watchdog_max > time.Duration(1000) {
+		d, err := watchdog.Open()
+		if err != nil {
+			log.Fatalf("failed to open watchdog: %v", err)
+		}
+		log.Println("Watchdog setup for interval:", *watchdog_max)
+
+		// Handle control-c / sigterm by closing out the watchdog timer
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			for sig := range sigs {
+				log.Printf("captured %v, stopping watchdog...", sig)
+				d.Close()
+				os.Exit(1)
+			}
+		}()
+
+		go func() {
+			// We purposely double-close the file to ensure that the explicit Close
+			// later on also disarms the device as the program exits. Otherwise it's
+			// possible we may exit early or with a subtle error and leave the system
+			// in a doomed state.
+			defer d.Close()
+
+			timeout, err := d.Timeout()
+			if err != nil {
+				log.Fatalf("failed to fetch watchdog timeout: %v", err)
+			}
+
+			interval := 10 * time.Second
+			if timeout < interval {
+				interval = timeout
+			}
+
+			for {
+				if time.Now().Sub(last_connection) < *watchdog_max {
+					if err := d.Ping(); err != nil {
+						log.Printf("failed to ping watchdog: %v", err)
+					}
+				}
+
+				time.Sleep(interval)
+			}
+
+			// Safely disarm the device before exiting.
+			if err := d.Close(); err != nil {
+				log.Printf("failed to disarm watchdog: %v", err)
+			}
+		}()
+	}
+
+	// Setup the server for listening
 	var l net.Listener
 	if *tls_server {
 		var config tls.Config
@@ -177,6 +248,7 @@ func main() {
 	defer l.Close()
 	for {
 		conn, err := l.Accept() // Wait for a connection.
+		last_connection = time.Now()
 		if err != nil {
 			fmt.Println("Error on accept", err)
 			continue
