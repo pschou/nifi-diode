@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -183,8 +184,13 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 			}
 			outbuf.Flush()
 
+			var firstLine string
 			for {
+				// Sink everything to /dev/null from downstream except the return code
 				str, err := anti_diode.ReadString('\n')
+				if firstLine == "" {
+					firstLine = str
+				}
 				if err != nil {
 					return fmt.Errorf("Diode: Error reading in target header, %s", err)
 				}
@@ -193,25 +199,39 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 				}
 			}
 
-			if v, ok := header_map[FLOWFILE_CONFIRMATION_HEADER]; ok && strings.HasPrefix(v, "t") {
-				rand_uuid := uuid.New()
-				path := strings.TrimSuffix(target, "/") + "/holds/" + rand_uuid.String()
-				input.Write([]byte("HTTP/1.1 303 See Other\r\n" +
-					"Date: " + time.Now().UTC().Format(time.RFC1123) + "\r\n" +
-					"Content-Type: text-plain\r\n" +
-					"Location: " + path + "\r\n" +
-					"x-location-uri-intent: flowfile-hold\r\n" +
-					"Content-Length: " + fmt.Sprintf("%d", len(path)) + "\r\n" +
-					"Server: NiFi-Diode (github.com/pschou/nifi-diode)\r\n" +
-					"\r\n" +
-					path))
-			} else {
-				input.Write([]byte("HTTP/1.1 303 See Other\r\n" +
-					"Date: " + time.Now().UTC().Format(time.RFC1123) + "\r\n" +
-					"Content-Type: text-plain\r\n" +
-					"Content-Length: 0\r\n" +
-					"Server: NiFi-Diode (github.com/pschou/nifi-diode)\r\n" +
-					"\r\n"))
+			if method == "POST" {
+				if *debug {
+					// Display the return code to the logger if logging is turned on locally
+					log.Println("Downstream got:", firstLine)
+				}
+				returnMethod := strings.SplitN(firstLine, " ", 3)
+				if len(returnMethod) == 3 && returnMethod[1] == "303" {
+					if v, ok := header_map[FLOWFILE_CONFIRMATION_HEADER]; ok && strings.HasPrefix(v, "t") {
+						// Generate some random UUID string just to make the client happy
+						rand_uuid := uuid.New()
+						path := strings.TrimSuffix(target, "/") + "/holds/" + rand_uuid.String()
+						input.Write([]byte("HTTP/1.1 303 See Other\r\n" +
+							"Date: " + time.Now().UTC().Format(time.RFC1123) + "\r\n" +
+							"Content-Type: text-plain\r\n" +
+							"Location: " + path + "\r\n" +
+							"x-location-uri-intent: flowfile-hold\r\n" +
+							"Content-Length: " + fmt.Sprintf("%d", len(path)) + "\r\n" +
+							"Server: NiFi-Diode (github.com/pschou/nifi-diode)\r\n" +
+							"\r\n" +
+							path))
+					} else {
+						input.Write([]byte("HTTP/1.1 303 See Other\r\n" +
+							"Date: " + time.Now().UTC().Format(time.RFC1123) + "\r\n" +
+							"Content-Type: text-plain\r\n" +
+							"Content-Length: 0\r\n" +
+							"Server: NiFi-Diode (github.com/pschou/nifi-diode)\r\n" +
+							"\r\n"))
+					}
+				} else {
+					// Downstream encountered an error, just close the connection.  We
+					// don't really want details of why it failed to be passed on.
+					return fmt.Errorf("Diode: Target header did not come back with a 303 method.")
+				}
 			}
 		}
 	}
