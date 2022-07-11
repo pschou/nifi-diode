@@ -3,8 +3,8 @@ Super simple NiFi Diode that does one thing, takes in data and passes it on to
 another NiFi without letting anything go the other direction.  Hence it's a
 simple, no-cache-diode.
 
-The idea here is this server listens on a ip:port and then any incomming
-connection is streamed to another ip:port, but data can only transfer one way.
+The idea here is this server listens on a IP:Port and then any incomming
+connection is streamed to another IP:Port, but data can only transfer one way.
 The sending side will have no idea what server it is sending to nor be able to
 get any information from the downstream NiFi.
 
@@ -23,15 +23,15 @@ task of bringing in updates while ensuring that data has no chance of escaping
 the network?  Enter stage right, nifi-diode.  This tool has a good resume:
 
 - Free and open-source (FOSS is good)
-- Has a memory footprint of 10-50 MB (It runs on cheap hardware)
-- Can run directly from a kernel INIT= call (no one can break in!)
-- Place a box in a locked server room and by denying physical access, you effectively prohibit data from going the wrong way (It's a win-win!)
-- Threadable, multiple concurrent flows can help with latency issues
+- Has a memory footprint of 10-50 MB. (It runs on cheap hardware)
+- Can run directly from a kernel INIT= call. (no one can break in!)
+- Place a box in a locked server room, and by denying physical access, you effectively prohibit data from going the wrong way. (It's a win-win!)
+- Threadable, multiple concurrent flows can help with latency issues.
 
 What are the pitfalls?
 
-- If the server dies, who knows for what reason, you need to get to the physical server to restore the diode (which seems like a good risk)
-- It's command line, so you have to know Linux (my manager included this, but techies should know Linux)
+- If the server dies, who knows for what reason, you need to get to the physical server to restore the diode. (which seems like a good risk)
+- It's command line, so you have to know Linux. (my manager included this, but techies should know Linux)
 - If you like burning all your data to a DVD and sneaker netting it between buildings, you'll have to find a gym now.  :(
 
 ![NiFi-Diode diagram showing a NiFi box on the left, and arrow representing a TCP flow pointing to a NiFi Diode in the middle, and another arrow to the right going to a NiFi box on the right, again representing a TCP flow](NiFi-Diode.png)
