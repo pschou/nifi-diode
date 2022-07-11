@@ -69,10 +69,10 @@ Certificate options:
                           (Default: "/etc/pki/server.pem")
 ```
 
-## Example usags
+## Example Usage 
 
 ```
-$ ./nifi-diode --host software-server.mydomain.edu:8000 --target http://software-server.mydomain.edu:8000 --tls-target false --tls-incoming true --cert /etc/pki/server.pem --key /etc/pki/server.pem --ca /etc/pki/CA.pem
+$ ./nifi-diode --target http://software-server.mydomain.edu:8000 --tls-target false --tls-incoming true --cert /etc/pki/server.pem --key /etc/pki/server.pem --ca /etc/pki/CA.pem
 ```
 
 In this example, the Domain 1 side is encrypted with an internal signed cert
@@ -81,3 +81,12 @@ The reason why encryption is turned on for the Domain 1 is to ensure the
 connection is established by our NiFi box and not another system on the same
 public network.  Internally, the encryption is not needed as the system sits
 inside the same server room as the software-server
+
+Note that the `--host` was left off as the target DNS matches the remote system
+hostname.  If it didn't, one would have to do something like this:
+```
+$ ./nifi-diode --host mysecure-host:8000 --target http://10.99.99.2:8000 --tls-target false --tls-incoming false --listen :8000
+```
+
+This example shows a "drop in" replacement for a NiFi target.  Point the diode
+to the actual downstream NiFi and assign the diode to a static IP address.
