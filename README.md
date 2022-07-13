@@ -24,21 +24,24 @@ the network?  Enter stage right, nifi-diode.  This tool has a good resume:
 
 - Free and open-source (FOSS is good)
 - Has a memory footprint of 1-50 MB. (It runs on cheap hardware) 
-- Can run directly from a kernel INIT= call - Avoid purchasing a dedicated buy
-  a hardware appliance.  Download your favorite distro and then modify the grub
+- Can run directly from a kernel INIT= call - Avoid purchasing a dedicated 
+  hardware appliance.  Download your favorite distro and then modify the grub
   init to point to this binary instead of the standard init and you have yourself
   a linux based "hardware" NiFi diode.
 - Standard data diode protections apply - place this on a box in a locked server
   room, and by denying physical access, you effectively prohibit data from going
   the wrong way. (It's a win-win!)
-- Threadable, multiple concurrent flows can help with latency issues and increase
-  throughput.
+- Threadable, the server handles multiple concurrent flows which can help with
+  latency issues and increase throughput.
 
 What are the pitfalls?
 
-- If the server dies, who knows for what reason, you need to get to the physical server to restore the diode. (which seems like a good risk)
-- It's command line, so you have to know Linux. (my manager included this, but techies should know Linux)
-- If you like burning all your data to a DVD and sneaker netting it between buildings, you'll have to find a gym now.  :(
+- If the server dies, who knows for what reason, you need to get to the
+  physical server to restore the diode. (which seems like a good risk)
+- It's command line, so you have to know Linux. (my manager included this, but
+  techies should know Linux)
+- If you like burning all your data to a DVD and sneaker netting it between
+  buildings, you'll have to find a gym now.  :(
 
 ![NiFi-Diode diagram showing a NiFi box on the left, and arrow representing a TCP flow pointing to a NiFi Diode in the middle, and another arrow to the right going to a NiFi box on the right, again representing a TCP flow](NiFi-Diode.png)
 
