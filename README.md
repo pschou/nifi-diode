@@ -67,7 +67,8 @@ Listener options:
       --secure-incoming BOOL  Enforce minimum of TLS 1.2 on server side  (Default: true)
       --tls-incoming BOOL  Enable listener TLS  (Default: true)
       --verify-incoming BOOL  Verify incoming connections, do certificate checks  (Default: true)
-      --watchdog DURATION  Trigger a reboot if no connection is seen within this time window  (Default: 0s)
+      --watchdog DURATION  Trigger a reboot if no connection is seen within this time window
+                         You'll neet to make sure you have the watchdog module enabled on the host and kernel.  (Default: 0s)
 Target options:
   -H, --host FQDN[:PORT]  Hostname for output/target NiFi - This should be set to what the target is expecting  (Default: "")
       --secure-target BOOL  Enforce minimum of TLS 1.2 on client side  (Default: true)

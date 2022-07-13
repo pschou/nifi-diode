@@ -98,7 +98,7 @@ func main() {
 	var verify_server = params.Bool("verify-incoming", true, "Verify incoming connections, do certificate checks", "BOOL")
 	var secure_server = params.Bool("secure-incoming", true, "Enforce minimum of TLS 1.2 on server side", "BOOL")
 	var tls_server = params.Bool("tls-incoming", true, "Enable listener TLS", "BOOL")
-	var watchdog_max = params.Duration("watchdog", time.Duration(0), "Trigger a reboot if no connection is seen within this time window", "DURATION")
+	var watchdog_max = params.Duration("watchdog", time.Duration(0), "Trigger a reboot if no connection is seen within this time window\nYou'll neet to make sure you have the watchdog module enabled on the host and kernel.", "DURATION")
 	var init_run = params.String("init-run", "", "Run shell script before starting server. Use this to enable networking when nifi-diode\nis started by the kernel in INIT 1 state (single process)", "PATH")
 	params.GroupingSet("Target")
 	var target = params.String("t target", "127.0.0.1:443", "Output/target address for diode", "HOST:PORT")
