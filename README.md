@@ -37,7 +37,9 @@ the network?  Enter stage right, nifi-diode.  This tool has a good resume:
 What are the pitfalls?
 
 - If the server dies, who knows for what reason, you need to get to the
-  physical server to restore the diode. (which seems like a good risk)
+  physical server to restore the diode.  A watchdog timer is included for this
+  purpose, so set the timeout to an acceptable outage window size.  (overall this
+  seems like a good risk when preventing reverse data flow)
 - It's command line, so you have to know Linux. (my manager included this, but
   techies should know Linux)
 - If you like burning all your data to a DVD and sneaker netting it between
@@ -52,7 +54,7 @@ Moving data between domains with a "FOSS Hardware" solution.
 $ ./nifi-diode -h
 Simple NiFi Diode (github.com/pschou/nifi-diode)
 Apache 2.0 license, for personal use only, provided AS-IS -- not responsible for loss.
-Usage implies agreement.  Version: 0.1.20220711.1504
+Usage implies agreement.  Version: 0.1.20220713.0912
 
 Usage: ./nifi-diode [options...]
 
