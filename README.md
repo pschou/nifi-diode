@@ -8,6 +8,22 @@ connection is streamed to another IP:Port, but data can only transfer one way.
 The sending side will have no idea what server it is sending to nor be able to
 get any information from the downstream NiFi.
 
+Think of the NiFi diode like a one way glass.  The downstream NiFi sees
+everything from the sending NiFi server as if the diode is not there but the
+sending side only sees "NiFi Diode".  So if the downstream NiFi is expecting a
+POST to go to an alternate content listener URL, the client must be configured
+to point to the same URL as the diode will only reply with success if a success
+happens.  No notifications are sent to the sending side what may have gone
+wrong if a transfer fails.  This is to ensure nothing gets leaked back to the
+sending side via server replies.
+
+The only fields which are changed going through the diode in the forward
+direction are the `Host` field (which NiFi needs to ensure connection
+authenticity) and `X-Forwarded-For` which lists the remote endpoint(s).  If
+multiple NiFi diode servers are stacked one upon another, the X-Forwarded-For
+will have a complete list of source IP addresses seperated by commas.
+
+
 ![NiFi-Diode diagram showing a NiFi box on the left, and arrow representing a TCP flow pointing to a NiFi Diode in the middle, and another arrow to the right going to a NiFi box on the right, again representing a TCP flow](NiFi-Diode.png)
 
 Moving data between domains with a "FOSS Hardware" solution.

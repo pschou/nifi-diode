@@ -8,6 +8,8 @@ import (
 	"net"
 )
 
+var verify_server, secure_server, tls_server *bool
+
 func server_init() (l net.Listener, err error) {
 	if *tls_server {
 		var config tls.Config

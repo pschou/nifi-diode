@@ -24,13 +24,11 @@ type DNS struct {
 }
 
 var (
-	target_addr                              *string
-	DNSCache                                 = make(map[string]DNS, 0)
-	debug                                    *bool
-	version                                  = "not set"
-	tls_host                                 *string
-	verify_server, secure_server, tls_server *bool
-	listen                                   *string
+	target_addr *string
+	debug       *bool
+	version     = "not set"
+	tls_host    *string
+	listen      *string
 )
 
 func main() {
@@ -173,9 +171,16 @@ func main() {
 				log.Println("connected!", *target_addr)
 			}
 
+			// We have established TCP connections with an upstream and a downstream
+			// NiFi.  Here we pass off the connection to the diode function for
+			// making sure the data is transferred in a safe manner:
 			err = diode(input, target)
-			if *debug {
-				fmt.Println(conn.RemoteAddr(), "->", *target_addr, err)
+
+			if err != nil {
+				if *debug {
+					fmt.Println(conn.RemoteAddr(), "->", *target_addr, err)
+				}
+				logger_Write(fmt.Sprintf("Diode connection err with %q via %q -> %q, err: %s", conn.RemoteAddr(), target.LocalAddr(), target.RemoteAddr(), err))
 			}
 		}(conn)
 	}
