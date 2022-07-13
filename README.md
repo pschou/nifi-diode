@@ -8,6 +8,10 @@ connection is streamed to another IP:Port, but data can only transfer one way.
 The sending side will have no idea what server it is sending to nor be able to
 get any information from the downstream NiFi.
 
+![NiFi-Diode diagram showing a NiFi box on the left, and arrow representing a TCP flow pointing to a NiFi Diode in the middle, and another arrow to the right going to a NiFi box on the right, again representing a TCP flow](NiFi-Diode.png)
+
+Moving data between domains with a "FOSS Hardware" solution.
+
 
 ## Why do I need this?
 
@@ -45,18 +49,14 @@ What are the pitfalls?
 - If you like burning all your data to a DVD and sneaker netting it between
   buildings, you'll have to find a gym now.  :(
 
-![NiFi-Diode diagram showing a NiFi box on the left, and arrow representing a TCP flow pointing to a NiFi Diode in the middle, and another arrow to the right going to a NiFi box on the right, again representing a TCP flow](NiFi-Diode.png)
-
-Moving data between domains with a "FOSS Hardware" solution.
-
 ## Usage
 ```
-$ ./nifi-diode -h
+$ ../nifi-diode  -h
 Simple NiFi Diode (github.com/pschou/nifi-diode)
 Apache 2.0 license, for personal use only, provided AS-IS -- not responsible for loss.
-Usage implies agreement.  Version: 0.1.20220713.1224
+Usage implies agreement.  Version: 0.1.20220713.1342
 
-Usage: ./nifi-diode [options...]
+Usage: ../nifi-diode [options...]
 
 Option:
       --debug           Verbose output
@@ -67,6 +67,8 @@ Listener options:
       --logger STRING   Remote logging server to use for collecting logs on events, SysLog or SPLUNK capable.
                         Format:  [proto]://[tag]@[host:port]/[priority] for example:  tcp://NiFi-Diode@123.123.123.123:515/LOG_NOTICE
                         Multiple log targets can be specified with commas udp://10.0.0.1,udp://10.0.0.2 (UDP is preferred)  (Default: "")
+      --max-sockets INT  Maximum number of sockets allowed to be open at once for DoS protection  (Default: 2048)
+      --metrics         Remote metrics-collector server for collecting OpenMetrics for system monitoring.  (Default: "")
       --secure-incoming BOOL  Enforce minimum of TLS 1.2 on server side  (Default: true)
       --tls-incoming BOOL  Enable listener TLS  (Default: true)
       --verify-incoming BOOL  Verify incoming connections, do certificate checks  (Default: true)

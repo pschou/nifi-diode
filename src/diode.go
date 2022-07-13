@@ -6,6 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -13,7 +14,9 @@ import (
 	"github.com/google/uuid"
 )
 
-func diode(input io.ReadWriter, output io.ReadWriter) error {
+func diode(input net.Conn, output io.ReadWriter) error {
+	var total_bytes uint64
+	connection_counter++
 	// To protect any "information" from going backwards over the wire, we'll
 	// create a uuid translation map so DELETE commands can reference a flowfile
 	// which is called something different on the other side of the diode.
@@ -33,7 +36,7 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 	var output_pipe io.Writer
 	for {
 		header_map := make(map[string]string)
-		var method, target string
+		var method, target, forward string
 		var has_method bool
 
 		for {
@@ -42,7 +45,6 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 				return fmt.Errorf("Diode: Error reading in input header, %s", err)
 			}
 			if strings.TrimSpace(str) == "" {
-				_, err = output_pipe.Write([]byte(str))
 				if err != nil {
 					return fmt.Errorf("Diode: Error writing header end to output, %s", err)
 				}
@@ -82,6 +84,10 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 				if strings.EqualFold(parts[0], "Host:") {
 					str = "Host: " + *tls_host + "\r\n"
 				}
+				if strings.EqualFold(parts[0], "X-Forwarded-For:") {
+					forward = str
+					continue
+				}
 			}
 
 			// We are a diode, so write the input header request to the output
@@ -93,6 +99,14 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 
 		if !has_method {
 			return fmt.Errorf("Diode: Input does not have an HTTP method")
+		}
+
+		if forward == "" {
+			// Create a pipeline log
+			output_pipe.Write([]byte("X-Forwarded-For: " + input.RemoteAddr().String() + "\r\n\r\n"))
+		} else {
+			// Build a pipeline log
+			output_pipe.Write([]byte(strings.TrimSpace(forward) + "," + input.RemoteAddr().String() + "\r\n\r\n"))
 		}
 		outbuf.Flush()
 
@@ -169,14 +183,16 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 							if err != nil {
 								return fmt.Errorf("Diode: Invalid flowfile length, %q", trim)
 							}
-							io.Copy(outbuf, &io.LimitedReader{R: inbuf, N: i})
+							n, _ := io.Copy(outbuf, &io.LimitedReader{R: inbuf, N: i})
+							total_bytes += uint64(n)
 						} else {
 							// Simple octect stream
 							i, err := strconv.ParseInt(trim, 10, 64)
 							if err != nil {
 								return fmt.Errorf("Diode: Invalid flowfile length, %q", trim)
 							}
-							io.Copy(outbuf, &io.LimitedReader{R: inbuf, N: i})
+							n, _ := io.Copy(outbuf, &io.LimitedReader{R: inbuf, N: i})
+							total_bytes += uint64(n)
 						}
 					}
 					outbuf.Flush()
@@ -207,6 +223,8 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 				returnMethod := strings.SplitN(firstLine, " ", 3)
 				if len(returnMethod) >= 2 {
 					if returnMethod[1] == "303" {
+						byte_counter += total_bytes
+						transfer_counter++
 						if v, ok := header_map[FLOWFILE_CONFIRMATION_HEADER]; ok && strings.HasPrefix(v, "t") {
 							// Generate some random UUID string just to make the client happy
 							rand_uuid := uuid.New()
@@ -223,6 +241,8 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 							return nil
 						}
 					} else if returnMethod[1] == "200" {
+						byte_counter += total_bytes
+						transfer_counter++
 						input.Write([]byte("HTTP/1.1 200 OK\r\n" +
 							"Date: " + time.Now().UTC().Format(time.RFC1123) + "\r\n" +
 							"Content-Type: text-plain\r\n" +
