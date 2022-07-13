@@ -54,21 +54,24 @@ Moving data between domains with a "FOSS Hardware" solution.
 $ ./nifi-diode -h
 Simple NiFi Diode (github.com/pschou/nifi-diode)
 Apache 2.0 license, for personal use only, provided AS-IS -- not responsible for loss.
-Usage implies agreement.  Version: 0.1.20220713.0912
+Usage implies agreement.  Version: 0.1.20220713.1224
 
 Usage: ./nifi-diode [options...]
 
 Option:
-      --debug            Verbose output
+      --debug           Verbose output
 Listener options:
-      --init-run PATH    Run shell script before starting server. Use this to enable networking when nifi-diode
-                         is started by the kernel in INIT 1 state (single process)  (Default: "")
+      --init-run PATH   Run shell script before starting server. Use this to enable networking when nifi-diode
+                        is started by the kernel in INIT 1 state (single process)  (Default: "")
   -l, --listen HOST:PORT  Incoming/listen address for diode  (Default: ":7443")
+      --logger STRING   Remote logging server to use for collecting logs on events, SysLog or SPLUNK capable.
+                        Format:  [proto]://[tag]@[host:port]/[priority] for example:  tcp://NiFi-Diode@123.123.123.123:515/LOG_NOTICE
+                        Multiple log targets can be specified with commas udp://10.0.0.1,udp://10.0.0.2 (UDP is preferred)  (Default: "")
       --secure-incoming BOOL  Enforce minimum of TLS 1.2 on server side  (Default: true)
       --tls-incoming BOOL  Enable listener TLS  (Default: true)
       --verify-incoming BOOL  Verify incoming connections, do certificate checks  (Default: true)
       --watchdog DURATION  Trigger a reboot if no connection is seen within this time window
-                         You'll neet to make sure you have the watchdog module enabled on the host and kernel.  (Default: 0s)
+                        You'll neet to make sure you have the watchdog module enabled on the host and kernel.  (Default: 0s)
 Target options:
   -H, --host FQDN[:PORT]  Hostname for output/target NiFi - This should be set to what the target is expecting  (Default: "")
       --secure-target BOOL  Enforce minimum of TLS 1.2 on client side  (Default: true)
@@ -76,12 +79,12 @@ Target options:
       --tls-target BOOL  Enable output TLS  (Default: true)
       --verify-target BOOL  Verify target, do certificate checks  (Default: true)
 Certificate options:
-      --ca FILE          File to load with ROOT CAs - reloaded every minute by adding any new entries
-                           (Default: "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem")
-  -E, --cert FILE        File to load with CERT - automatically reloaded every minute
-                           (Default: "/etc/pki/server.pem")
-      --key FILE         File to load with KEY - automatically reloaded every minute
-                           (Default: "/etc/pki/server.pem")
+      --ca FILE         File to load with ROOT CAs - reloaded every minute by adding any new entries
+                          (Default: "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem")
+  -E, --cert FILE       File to load with CERT - automatically reloaded every minute
+                          (Default: "/etc/pki/server.pem")
+      --key FILE        File to load with KEY - automatically reloaded every minute
+                          (Default: "/etc/pki/server.pem")
 ```
 
 ## Example Usage 

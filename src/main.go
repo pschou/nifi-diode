@@ -13,10 +13,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"log/syslog"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -36,6 +39,7 @@ var keyFile, certFile, rootFile *string
 var keypair *tls.Certificate
 var keypair_count = 0
 var keypair_mu sync.RWMutex
+var loggers []*syslog.Writer
 var root_count = 0
 var rootpool *x509.CertPool
 var certs_loaded = make(map[string]bool, 0)
@@ -45,6 +49,12 @@ var tls_host *string
 
 var last_connection = time.Now()
 
+func logger_Write(s string) {
+	for _, l := range loggers {
+		l.Write([]byte(s))
+	}
+}
+
 func loadKeys() {
 	keypair_mu.RLock()
 	defer keypair_mu.RUnlock()
@@ -52,18 +62,20 @@ func loadKeys() {
 
 	tmp_key, err_k := tls.LoadX509KeyPair(*certFile, *keyFile)
 	if err_k != nil {
+		logger_Write(fmt.Sprintf("failed to loadkey pair, check that the cert file has a public key and the key file has a private key.\npublic: %s\nprivate: %s, %s", *certFile, *keyFile, err_k))
 		if keypair == nil {
-			log.Fatalf("failed to loadkey pair, check that the cert file has a public key and the key file has a private key.\npublic: %s\nprivate: %s", *certFile, *keyFile)
+			log.Fatalf("failed to loadkey pair, check that the cert file has a public key and the key file has a private key.\npublic: %s\nprivate: %s, %s", *certFile, *keyFile, err_k)
 		}
 		keypair_count++
 		log.Println("WARNING: Cannot load keypair (cert/key)", *certFile, *keyFile, "attempt:", keypair_count)
 		if keypair_count > 10 {
-			log.Fatalf("failed to loadkey pair, check that the cert file has a public key and the key file has a private key.\npublic: %s\nprivate: %s", *certFile, *keyFile)
+			log.Fatalf("failed to loadkey pair, check that the cert file has a public key and the key file has a private key.\npublic: %s\nprivate: %s, %s", *certFile, *keyFile, err_k)
 		}
 	} else {
 		if *debug {
 			log.Println("Loaded keypair", *certFile, *keyFile)
 		}
+		logger_Write(fmt.Sprintf("Loaded keypair", *certFile, *keyFile))
 		keypair = &tmp_key
 		keypair_count = 0
 	}
@@ -82,6 +94,7 @@ func loadKeys() {
 		if *debug {
 			log.Println("Loaded CA", *rootFile)
 		}
+		logger_Write(fmt.Sprintf("Loaded CA", *rootFile))
 		root_count = 0
 	}
 
@@ -98,6 +111,9 @@ func main() {
 	var verify_server = params.Bool("verify-incoming", true, "Verify incoming connections, do certificate checks", "BOOL")
 	var secure_server = params.Bool("secure-incoming", true, "Enforce minimum of TLS 1.2 on server side", "BOOL")
 	var tls_server = params.Bool("tls-incoming", true, "Enable listener TLS", "BOOL")
+	var log_server = params.String("logger", "", "Remote logging server to use for collecting logs on events, SysLog or SPLUNK capable.\n"+
+		"Format:  [proto]://[tag]@[host:port]/[priority] for example:  tcp://NiFi-Diode@123.123.123.123:515/LOG_NOTICE\n"+
+		"Multiple log targets can be specified with commas udp://10.0.0.1,udp://10.0.0.2 (UDP is preferred)", "STRING")
 	var watchdog_max = params.Duration("watchdog", time.Duration(0), "Trigger a reboot if no connection is seen within this time window\nYou'll neet to make sure you have the watchdog module enabled on the host and kernel.", "DURATION")
 	var init_run = params.String("init-run", "", "Run shell script before starting server. Use this to enable networking when nifi-diode\nis started by the kernel in INIT 1 state (single process)", "PATH")
 	params.GroupingSet("Target")
@@ -112,6 +128,65 @@ func main() {
 	rootFile = params.String("ca", "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem", "File to load with ROOT CAs - reloaded every minute by adding any new entries\n", "FILE")
 	params.CommandLine.Indent = 2
 	params.Parse()
+
+	if *log_server != "" {
+		log_connect := func() {
+			var old_loggers, new_loggers []*syslog.Writer
+			for _, srvr := range strings.Split(*log_server, ",") {
+				lh, err := url.Parse(srvr)
+				if err != nil {
+					log.Fatal("Could not parse the log_server, " + srvr)
+				}
+				lh.Scheme = strings.ToLower(lh.Scheme)
+				switch lh.Scheme {
+				case "tcp", "udp":
+				default:
+					log.Fatal("Unknown log_server scheme, " + lh.Scheme)
+				}
+
+				tag := "NiFi-Diode"
+				if lh.User != nil {
+					tag = lh.User.Username()
+				}
+				priority := syslog.LOG_NOTICE
+				switch strings.SplitN(strings.ToLower(strings.TrimPrefix(lh.Path, "/")), "/", 2)[0] {
+				case "LOG_EMERG":
+					priority = syslog.LOG_EMERG
+				case "LOG_ALERT":
+					priority = syslog.LOG_ALERT
+				case "LOG_CRIT":
+					priority = syslog.LOG_CRIT
+				case "LOG_ERR":
+					priority = syslog.LOG_ERR
+				case "LOG_WARNING":
+					priority = syslog.LOG_WARNING
+				case "LOG_NOTICE":
+					priority = syslog.LOG_NOTICE
+				case "LOG_INFO":
+					priority = syslog.LOG_INFO
+				case "LOG_DEBUG":
+					priority = syslog.LOG_DEBUG
+				}
+				logger, err := syslog.Dial(lh.Scheme, lh.Host, priority, tag)
+				if err != nil {
+					log.Println("Error dialing loghost", err)
+				} else {
+					new_loggers = append(new_loggers, logger)
+				}
+			}
+			old_loggers, loggers = loggers, new_loggers
+			for _, logger := range old_loggers {
+				logger.Close()
+			}
+		}
+		log_connect()
+		ticker := time.NewTicker(30 * time.Minute)
+		go func() {
+			for range ticker.C {
+				log_connect()
+			}
+		}()
+	}
 
 	if *tls_host == "" {
 		tls_host = target
@@ -248,13 +323,15 @@ func main() {
 	defer l.Close()
 	for {
 		conn, err := l.Accept() // Wait for a connection.
+		logger_Write("New connection from " + conn.RemoteAddr().String())
+		if *debug {
+			fmt.Println("New connection from", conn.RemoteAddr())
+		}
 		last_connection = time.Now()
 		if err != nil {
 			fmt.Println("Error on accept", err)
+			logger_Write(fmt.Sprintf("Error accepting connection from %s, %q", conn.RemoteAddr(), err))
 			continue
-		}
-		if *debug {
-			fmt.Println("New connection from", conn.RemoteAddr())
 		}
 
 		go func(input net.Conn) {
@@ -298,6 +375,7 @@ func main() {
 				log.Println("error dialing endpoint:", target_addr, "error:", err)
 				return
 			}
+			logger_Write(fmt.Sprintf("Diode connection from %q via %q -> %q", conn.RemoteAddr(), target.LocalAddr(), target.RemoteAddr()))
 			if *debug {
 				log.Println("connected!", target_addr)
 			}
@@ -325,6 +403,7 @@ func LoadCertficatesFromFile(path string) error {
 			cert, err := x509.ParseCertificate(block.Bytes)
 			if err != nil {
 				fmt.Println("warning: error parsing CA cert", err)
+				logger_Write(fmt.Sprintf("Error parsing CA cert %q, %s", cert, err))
 				continue
 			}
 			t := fmt.Sprintf("%v%v", cert.SerialNumber, cert.Subject)
