@@ -205,33 +205,36 @@ func diode(input io.ReadWriter, output io.ReadWriter) error {
 					log.Println("Downstream got:", firstLine)
 				}
 				returnMethod := strings.SplitN(firstLine, " ", 3)
-				if len(returnMethod) == 3 && returnMethod[1] == "303" {
-					if v, ok := header_map[FLOWFILE_CONFIRMATION_HEADER]; ok && strings.HasPrefix(v, "t") {
-						// Generate some random UUID string just to make the client happy
-						rand_uuid := uuid.New()
-						path := strings.TrimSuffix(target, "/") + "/holds/" + rand_uuid.String()
-						input.Write([]byte("HTTP/1.1 303 See Other\r\n" +
-							"Date: " + time.Now().UTC().Format(time.RFC1123) + "\r\n" +
-							"Content-Type: text-plain\r\n" +
-							"Location: " + path + "\r\n" +
-							"x-location-uri-intent: flowfile-hold\r\n" +
-							"Content-Length: " + fmt.Sprintf("%d", len(path)) + "\r\n" +
-							"Server: NiFi-Diode (github.com/pschou/nifi-diode)\r\n" +
-							"\r\n" +
-							path))
-					} else {
-						input.Write([]byte("HTTP/1.1 303 See Other\r\n" +
+				if len(returnMethod) >= 2 {
+					if returnMethod[1] == "303" {
+						if v, ok := header_map[FLOWFILE_CONFIRMATION_HEADER]; ok && strings.HasPrefix(v, "t") {
+							// Generate some random UUID string just to make the client happy
+							rand_uuid := uuid.New()
+							path := strings.TrimSuffix(target, "/") + "/holds/" + rand_uuid.String()
+							input.Write([]byte("HTTP/1.1 303 See Other\r\n" +
+								"Date: " + time.Now().UTC().Format(time.RFC1123) + "\r\n" +
+								"Content-Type: text-plain\r\n" +
+								"Location: " + path + "\r\n" +
+								"x-location-uri-intent: flowfile-hold\r\n" +
+								"Content-Length: " + fmt.Sprintf("%d", len(path)) + "\r\n" +
+								"Server: NiFi-Diode (github.com/pschou/nifi-diode)\r\n" +
+								"\r\n" +
+								path))
+							return nil
+						}
+					} else if returnMethod[1] == "200" {
+						input.Write([]byte("HTTP/1.1 200 OK\r\n" +
 							"Date: " + time.Now().UTC().Format(time.RFC1123) + "\r\n" +
 							"Content-Type: text-plain\r\n" +
 							"Content-Length: 0\r\n" +
 							"Server: NiFi-Diode (github.com/pschou/nifi-diode)\r\n" +
 							"\r\n"))
+						return nil
 					}
-				} else {
-					// Downstream encountered an error, just close the connection.  We
-					// don't really want details of why it failed to be passed on.
-					return fmt.Errorf("Diode: Target header did not come back with a 303 method.")
 				}
+				// Downstream encountered an error, just close the connection.  We
+				// don't really want details of why it failed to be passed on.
+				return fmt.Errorf("Diode: Target did not reply with a valid http method.")
 			}
 		}
 	}
