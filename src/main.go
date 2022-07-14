@@ -37,11 +37,6 @@ func main() {
 		params.PrintDefaults()
 	}
 	debug = params.Pres("debug", "Verbose output")
-	params.GroupingSet("Listener")
-	listen = params.String("l listen", ":7443", "Incoming/listen address for diode", "HOST:PORT")
-	verify_server = params.Bool("verify-incoming", true, "Verify incoming connections, do certificate checks", "BOOL")
-	secure_server = params.Bool("secure-incoming", true, "Enforce minimum of TLS 1.2 on server side", "BOOL")
-	tls_server = params.Bool("tls-incoming", true, "Enable listener TLS", "BOOL")
 	log_server = params.String("logger", "", "Remote logging server to use for collecting logs on events, SysLog or SPLUNK capable.\n"+
 		"Format:  [proto]://[tag]@[host:port]/[priority] for example:  tcp://NiFi-Diode@123.123.123.123:515/LOG_NOTICE\n"+
 		"Multiple log targets can be specified with commas udp://10.0.0.1,udp://10.0.0.2 (UDP is preferred)", "STRING")
@@ -49,6 +44,12 @@ func main() {
 	watchdog_max = params.Duration("watchdog", time.Duration(0), "Trigger a reboot if no connection is seen within this time window\nYou'll neet to make sure you have the watchdog module enabled on the host and kernel.", "DURATION")
 	var init_run = params.String("init-run", "", "Run shell script before starting server. Use this to enable networking when nifi-diode\nis started by the kernel in INIT 1 state (single process)", "PATH")
 	var max_conn = params.Int("max-sockets", 2048, "Maximum number of sockets allowed to be open at once for DoS protection", "INT")
+
+	params.GroupingSet("Listener")
+	listen = params.String("l listen", ":7443", "Incoming/listen address for diode", "HOST:PORT")
+	verify_server = params.Bool("verify-incoming", true, "Verify incoming connections, do certificate checks", "BOOL")
+	secure_server = params.Bool("secure-incoming", true, "Enforce minimum of TLS 1.2 on server side", "BOOL")
+	tls_server = params.Bool("tls-incoming", true, "Enable listener TLS", "BOOL")
 	params.GroupingSet("Target")
 	target_addr = params.String("t target", "127.0.0.1:443", "Output/target address for diode", "HOST:PORT")
 	var verify_client = params.Bool("verify-target", true, "Verify target, do certificate checks", "BOOL")

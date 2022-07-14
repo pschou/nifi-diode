@@ -70,26 +70,26 @@ What are the pitfalls?
 $ ../nifi-diode  -h
 Simple NiFi Diode (github.com/pschou/nifi-diode)
 Apache 2.0 license, for personal use only, provided AS-IS -- not responsible for loss.
-Usage implies agreement.  Version: 0.1.20220713.1342
+Usage implies agreement.  Version: 0.1.20220713.2129
 
-Usage: ../nifi-diode [options...]
+Usage: ./nifi-diode [options...]
 
-Option:
+Options:
       --debug           Verbose output
-Listener options:
       --init-run PATH   Run shell script before starting server. Use this to enable networking when nifi-diode
                         is started by the kernel in INIT 1 state (single process)  (Default: "")
-  -l, --listen HOST:PORT  Incoming/listen address for diode  (Default: ":7443")
       --logger STRING   Remote logging server to use for collecting logs on events, SysLog or SPLUNK capable.
                         Format:  [proto]://[tag]@[host:port]/[priority] for example:  tcp://NiFi-Diode@123.123.123.123:515/LOG_NOTICE
                         Multiple log targets can be specified with commas udp://10.0.0.1,udp://10.0.0.2 (UDP is preferred)  (Default: "")
       --max-sockets INT  Maximum number of sockets allowed to be open at once for DoS protection  (Default: 2048)
       --metrics         Remote metrics-collector server for collecting OpenMetrics for system monitoring.  (Default: "")
+      --watchdog DURATION  Trigger a reboot if no connection is seen within this time window
+                        You'll neet to make sure you have the watchdog module enabled on the host and kernel.  (Default: 0s)
+Listener options:
+  -l, --listen HOST:PORT  Incoming/listen address for diode  (Default: ":7443")
       --secure-incoming BOOL  Enforce minimum of TLS 1.2 on server side  (Default: true)
       --tls-incoming BOOL  Enable listener TLS  (Default: true)
       --verify-incoming BOOL  Verify incoming connections, do certificate checks  (Default: true)
-      --watchdog DURATION  Trigger a reboot if no connection is seen within this time window
-                        You'll neet to make sure you have the watchdog module enabled on the host and kernel.  (Default: 0s)
 Target options:
   -H, --host FQDN[:PORT]  Hostname for output/target NiFi - This should be set to what the target is expecting  (Default: "")
       --secure-target BOOL  Enforce minimum of TLS 1.2 on client side  (Default: true)
@@ -126,3 +126,4 @@ $ ./nifi-diode --host mysecure-host:8000 --target http://10.99.99.2:8000 --tls-t
 
 This example shows a "drop in" replacement for a NiFi target.  Point the diode
 to the actual downstream NiFi and assign the diode to a static IP address.
+
